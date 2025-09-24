@@ -1,14 +1,14 @@
-name: Update Data from Google Sheets
+name: Update Algolia from Google Sheets
 on:
   schedule:
-    - cron: '0 0,12 * * *'  # 매일 자정, 정오 (한국시간 오전9시, 오후9시)
-  workflow_dispatch:  # 수동 실행 가능
+    - cron: '0 0,12 * * *'
+  workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
       
       - name: Setup Node.js
@@ -16,52 +16,44 @@ jobs:
         with:
           node-version: '18'
       
-      - name: Download CSV from Google Sheets
+      - name: Download CSV and Update Algolia
+        env:
+          ALGOLIA_APP_ID: ${{ X02D3JQ3LS }}
+          ALGOLIA_ADMIN_KEY: ${{ 34b326537020e7362d2b85bfb7600b6f }}
+          ALGOLIA_INDEX: ${{ hwaseong }}
         run: |
-          curl -L "https://docs.google.com/spreadsheets/d/1TqArMJXSNRz9AJAJ0NNHYmQQv5Gh5TbNuNNqD107O1Y/export?format=csv" > hwaseong.csv
-          echo "✅ 화성시 데이터 다운로드 완료"
-          echo "총 $(wc -l < hwaseong.csv) 줄"
-      
-      - name: Convert CSV to JSON
-        run: |
+          curl -L "https://docs.google.com/spreadsheets/d/1TqArMJXSNRz9AJAJ0NNHYmQQv5Gh5TbNuNNqD107O1Y/export?format=csv" > data.csv
+          
           npm init -y
-          npm install csv-parser
+          npm install algoliasearch csv-parser
           
-          cat > convert.js << 'EOF'
-          const fs = require('fs');
+          cat > update-algolia.js << 'EOF'
+          const algoliasearch = require('algoliasearch');
           const csv = require('csv-parser');
+          const fs = require('fs');
           
-          const results = [];
-          fs.createReadStream('hwaseong.csv')
+          const client = algoliasearch(
+            process.env.ALGOLIA_APP_ID,
+            process.env.ALGOLIA_ADMIN_KEY
+          );
+          const index = client.initIndex(process.env.ALGOLIA_INDEX);
+          
+          const records = [];
+          
+          fs.createReadStream('data.csv')
             .pipe(csv())
             .on('data', (data) => {
-              // 각 레코드에 고유 ID 추가
-              data.id = data.카드번호 || `card_${results.length + 1}`;
-              results.push(data);
+              data.objectID = data.카드번호 || `card_${records.length + 1}`;
+              records.push(data);
             })
-            .on('end', () => {
-              // JSON 파일로 저장
-              fs.writeFileSync('data.json', JSON.stringify(results, null, 2));
-              console.log(`✅ ${results.length}개 레코드를 JSON으로 변환 완료`);
-              
-              // 통계 파일 생성
-              const stats = {
-                lastUpdate: new Date().toISOString(),
-                totalRecords: results.length,
-                updateTime: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
-              };
-              fs.writeFileSync('stats.json', JSON.stringify(stats, null, 2));
+            .on('end', async () => {
+              try {
+                await index.replaceAllObjects(records);
+                console.log(`✅ Algolia 업데이트: ${records.length}개`);
+              } catch (error) {
+                console.error('❌ 실패:', error);
+              }
             });
           EOF
           
-          node convert.js
-      
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add data.json stats.json
-          git diff --quiet && git diff --staged --quiet || (
-            git commit -m "📊 데이터 업데이트: $(date +'%Y-%m-%d %H:%M')"
-            git push
-          )
+          node update-algolia.js
