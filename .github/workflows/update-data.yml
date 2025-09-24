@@ -27,7 +27,7 @@ jobs:
           npm install algoliasearch csv-parser
           
           cat > update-algolia.js << 'EOF'
-          const algoliasearch = require('algoliasearch');
+          const algoliasearch = require('algoliasearch').default;
           const csv = require('csv-parser');
           const fs = require('fs');
           
