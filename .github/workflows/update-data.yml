@@ -27,7 +27,7 @@ jobs:
           npm install algoliasearch csv-parser
           
           cat > update-algolia.js << 'EOF'
-          const algoliasearch = require('algoliasearch').default;
+          const { default: algoliasearch } = require('algoliasearch');
           const csv = require('csv-parser');
           const fs = require('fs');
           
@@ -51,9 +51,9 @@ jobs:
                 console.log(`✅ Algolia 업데이트: ${records.length}개`);
               } catch (error) {
                 console.error('❌ 실패:', error);
+                process.exit(1);
               }
             });
           EOF
           
           node update-algolia.js
-
