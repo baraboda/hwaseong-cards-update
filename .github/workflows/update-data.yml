@@ -24,10 +24,10 @@ jobs:
           curl -L "https://docs.google.com/spreadsheets/d/1TqArMJXSNRz9AJAJ0NNHYmQQv5Gh5TbNuNNqD107O1Y/export?format=csv" > data.csv
           
           npm init -y
-          npm install algoliasearch csv-parser
+          npm install algoliasearch@4 csv-parser
           
           cat > update-algolia.js << 'EOF'
-          const { default: algoliasearch } = require('algoliasearch');
+          const algoliasearch = require('algoliasearch');
           const csv = require('csv-parser');
           const fs = require('fs');
           
@@ -57,3 +57,6 @@ jobs:
           EOF
           
           node update-algolia.js
+
+
+
