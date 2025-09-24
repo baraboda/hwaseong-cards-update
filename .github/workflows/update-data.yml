@@ -1,0 +1,17 @@
+name: Update Data Daily
+on:
+  workflow_dispatch:  # 일단 수동 실행만
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test download
+        run: |
+          echo "테스트 시작"
+          curl -L "https://docs.google.com/spreadsheets/d/1TqArMJXSNRz9AJAJ0NNHYmQQv5Gh5TbNuNNqD107O1Y/export?format=csv" > test.csv
+          echo "다운로드 완료"
+          echo "=== 첫 5줄 확인 ==="
+          head -n 5 test.csv
+          echo "=== 전체 줄 수 ==="
+          wc -l test.csv
