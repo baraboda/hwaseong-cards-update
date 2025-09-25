@@ -38,7 +38,7 @@ jobs:
           // CSV 파일 직접 파싱
           const fileContent = fs.readFileSync('data.csv', 'utf8');
           const lines = fileContent.split('\n');
-          const headers = lines[0].split('\t');  // 탭으로 구분
+          const headers = lines[0].split(',');  // 탭으로 구분
           const records = [];
           
           console.log('헤더:', headers);
@@ -46,7 +46,7 @@ jobs:
           
           for (let i = 1; i < lines.length; i++) {
             if (lines[i].trim()) {
-              const values = lines[i].split('\t');
+              const values = lines[i].split(',');
               const record = {};
               
               headers.forEach((header, index) => {
