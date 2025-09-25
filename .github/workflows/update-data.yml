@@ -29,62 +29,69 @@ jobs:
           const algoliasearch = require('algoliasearch');
           const fs = require('fs');
           
-          const client = algoliasearch(
-            process.env.ALGOLIA_APP_ID,
-            process.env.ALGOLIA_ADMIN_KEY
-          );
-          const index = client.initIndex('hwaseong');
-          
-          // CSV 파일 직접 파싱
-          const fileContent = fs.readFileSync('data.csv', 'utf8');
-          const lines = fileContent.split('\n');
-          const headers = lines[0].split(',');  // 쉼표로 구분
-          const records = [];
-          
-          console.log('헤더:', headers);
-          console.log('전체 줄 수:', lines.length);
-          
-          for (let i = 1; i < lines.length; i++) {
-            if (lines[i].trim()) {
-              const values = lines[i].split(',');
-              const record = {};
-              
-              headers.forEach((header, index) => {
-                const cleanHeader = header.trim();
-                record[cleanHeader] = values[index] ? values[index].trim() : '';
-              });
-              
-              if (record['카드번호']) {
-                record.objectID = record['카드번호'];
-                records.push(record);
+          async function updateAlgolia() {
+            const client = algoliasearch(
+              process.env.ALGOLIA_APP_ID,
+              process.env.ALGOLIA_ADMIN_KEY
+            );
+            const index = client.initIndex('hwaseong');
+            
+            // CSV 파일 직접 파싱
+            const fileContent = fs.readFileSync('data.csv', 'utf8');
+            const lines = fileContent.split('\n');
+            const headers = lines[0].split(',');
+            const records = [];
+            
+            console.log('헤더:', headers);
+            console.log('전체 줄 수:', lines.length);
+            
+            for (let i = 1; i < lines.length; i++) {
+              if (lines[i].trim()) {
+                const values = lines[i].split(',');
+                const record = {};
+                
+                headers.forEach((header, index) => {
+                  const cleanHeader = header.trim();
+                  record[cleanHeader] = values[index] ? values[index].trim() : '';
+                });
+                
+                if (record['카드번호']) {
+                  record.objectID = record['카드번호'];
+                  records.push(record);
+                }
               }
+            }
+            
+            console.log('파싱된 레코드 수:', records.length);
+            console.log('첫 번째 레코드:', JSON.stringify(records[0], null, 2));
+            
+            if (records.length > 0) {
+              // 100개씩 배치로 나누어 업로드
+              const batchSize = 100;
+              let totalUploaded = 0;
+              
+              for (let i = 0; i < records.length; i += batchSize) {
+                const batch = records.slice(i, i + batchSize);
+                try {
+                  await index.saveObjects(batch);
+                  totalUploaded += batch.length;
+                  console.log(`배치 ${Math.floor(i/batchSize) + 1}: ${batch.length}개 업로드 (총 ${totalUploaded}/${records.length})`);
+                } catch (error) {
+                  console.error(`배치 ${Math.floor(i/batchSize) + 1} 실패:`, error);
+                }
+              }
+              
+              console.log(`✅ Algolia 업데이트 완료: 총 ${totalUploaded}개`);
+            } else {
+              console.error('파싱된 레코드가 없습니다');
+              process.exit(1);
             }
           }
           
-          console.log('파싱된 레코드 수:', records.length);
-          console.log('첫 번째 레코드:', JSON.stringify(records[0], null, 2));
-          
-          if (records.length > 0) {
-            // 100개씩 배치로 나누어 업로드
-            const batchSize = 100;
-            let totalUploaded = 0;
-            
-            for (let i = 0; i < records.length; i += batchSize) {
-              const batch = records.slice(i, i + batchSize);
-              try {
-                await index.saveObjects(batch);
-                totalUploaded += batch.length;
-                console.log(`배치 ${Math.floor(i/batchSize) + 1}: ${batch.length}개 업로드 (총 ${totalUploaded}/${records.length})`);
-              } catch (error) {
-                console.error(`배치 ${Math.floor(i/batchSize) + 1} 실패:`, error);
-              }
-            }
-            
-            console.log(`✅ Algolia 업데이트 완료: 총 ${totalUploaded}개`);
-          } else {
-            console.error('파싱된 레코드가 없습니다');
+          updateAlgolia().catch(error => {
+            console.error('실행 실패:', error);
             process.exit(1);
-          }
+          });
           EOF
           
           node update-algolia.js
