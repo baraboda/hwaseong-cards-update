@@ -40,7 +40,7 @@ jobs:
           const records = [];
           
           fs.createReadStream('data.csv')
-            .pipe(csv())
+            .pipe(csv({ separator: '\t' }))  // 👈 탭 구분자 지정!
             .on('data', (data) => {
               data.objectID = data.카드번호 || `card_${records.length + 1}`;
               records.push(data);
