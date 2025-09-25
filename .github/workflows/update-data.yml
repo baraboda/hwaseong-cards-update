@@ -38,7 +38,7 @@ jobs:
           // CSV 파일 직접 파싱
           const fileContent = fs.readFileSync('data.csv', 'utf8');
           const lines = fileContent.split('\n');
-          const headers = lines[0].split(',');  // 탭으로 구분
+          const headers = lines[0].split(',');  // 쉼표로 구분
           const records = [];
           
           console.log('헤더:', headers);
@@ -65,14 +65,22 @@ jobs:
           console.log('첫 번째 레코드:', JSON.stringify(records[0], null, 2));
           
           if (records.length > 0) {
-            index.replaceAllObjects(records)
-              .then(() => {
-                console.log(`✅ Algolia 업데이트: ${records.length}개`);
-              })
-              .catch(error => {
-                console.error('❌ 실패:', error);
-                process.exit(1);
-              });
+            // 100개씩 배치로 나누어 업로드
+            const batchSize = 100;
+            let totalUploaded = 0;
+            
+            for (let i = 0; i < records.length; i += batchSize) {
+              const batch = records.slice(i, i + batchSize);
+              try {
+                await index.saveObjects(batch);
+                totalUploaded += batch.length;
+                console.log(`배치 ${Math.floor(i/batchSize) + 1}: ${batch.length}개 업로드 (총 ${totalUploaded}/${records.length})`);
+              } catch (error) {
+                console.error(`배치 ${Math.floor(i/batchSize) + 1} 실패:`, error);
+              }
+            }
+            
+            console.log(`✅ Algolia 업데이트 완료: 총 ${totalUploaded}개`);
           } else {
             console.error('파싱된 레코드가 없습니다');
             process.exit(1);
