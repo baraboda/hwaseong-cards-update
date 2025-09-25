@@ -23,10 +23,11 @@ jobs:
           curl -L "https://docs.google.com/spreadsheets/d/1TqArMJXSNRz9AJAJ0NNHYmQQv5Gh5TbNuNNqD107O1Y/export?format=csv&gid=0" > data.csv
           
           npm init -y
-          npm install algoliasearch@4
+          npm install algoliasearch@4 csv-parser
           
           cat > update-algolia.js << 'EOF'
           const algoliasearch = require('algoliasearch');
+          const csv = require('csv-parser');
           const fs = require('fs');
           
           async function updateAlgolia() {
@@ -36,37 +37,33 @@ jobs:
             );
             const index = client.initIndex('hwaseong');
             
-            // CSV 파일 직접 파싱
-            const fileContent = fs.readFileSync('data.csv', 'utf8');
-            const lines = fileContent.split('\n');
-            const headers = lines[0].split(',');
             const records = [];
             
-            console.log('헤더:', headers);
-            console.log('전체 줄 수:', lines.length);
-            
-            for (let i = 1; i < lines.length; i++) {
-              if (lines[i].trim()) {
-                const values = lines[i].split(',');
-                const record = {};
-                
-                headers.forEach((header, index) => {
-                  const cleanHeader = header.trim();
-                  record[cleanHeader] = values[index] ? values[index].trim() : '';
-                });
-                
-                if (record['카드번호']) {
-                  record.objectID = record['카드번호'];
-                  records.push(record);
-                }
-              }
-            }
+            // csv-parser로 제대로 파싱
+            await new Promise((resolve, reject) => {
+              fs.createReadStream('data.csv')
+                .pipe(csv())
+                .on('data', (row) => {
+                  if (row['카드번호']) {
+                    row.objectID = row['카드번호'];
+                    records.push(row);
+                  }
+                })
+                .on('end', resolve)
+                .on('error', reject);
+            });
             
             console.log('파싱된 레코드 수:', records.length);
-            console.log('첫 번째 레코드:', JSON.stringify(records[0], null, 2));
+            if (records.length > 0) {
+              console.log('첫 번째 레코드:', JSON.stringify(records[0], null, 2));
+            }
             
             if (records.length > 0) {
-              // 100개씩 배치로 나누어 업로드
+              // 기존 데이터 삭제
+              await index.clearObjects();
+              console.log('기존 데이터 삭제 완료');
+              
+              // 100개씩 배치로 업로드
               const batchSize = 100;
               let totalUploaded = 0;
               
