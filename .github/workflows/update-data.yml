@@ -39,7 +39,6 @@ jobs:
             
             const records = [];
             
-            // csv-parser로 제대로 파싱
             await new Promise((resolve, reject) => {
               fs.createReadStream('data.csv')
                 .pipe(csv())
@@ -59,11 +58,9 @@ jobs:
             }
             
             if (records.length > 0) {
-              // 기존 데이터 삭제
               await index.clearObjects();
               console.log('기존 데이터 삭제 완료');
               
-              // 100개씩 배치로 업로드
               const batchSize = 100;
               let totalUploaded = 0;
               
