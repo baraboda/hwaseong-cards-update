@@ -44,8 +44,8 @@ jobs:
                 .pipe(csv())
                 .on('data', (row) => {
                   if (row['카드번호']) {
-                    row.objectID = row['카드번호'] + '_' + (row['파일명'] || records.length);
-                    records.push(row);
+                  row.objectID = row['카드번호'] + '_' + (row['파일명'] || '') + '_' + records.length;
+                  records.push(row);
                   }
                 })
                 .on('end', resolve)
